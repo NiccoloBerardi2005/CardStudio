@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover: usa tutto lo schermo (notch iPhone); i margini di sicurezza sono gestiti nel CSS -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Meta Apple: "Aggiungi alla schermata Home" (iPhone/iPad) o "Aggiungi al Dock" (Safari su Mac) -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Card Studio">
+<!-- theme-color viene aggiornato dal JavaScript quando cambia il tema (barra di Safari) -->
+<meta name="theme-color" id="metaTheme" content="#F6F6F7">
+<script>
+  /* Imposta il tema PRIMA del disegno della pagina (evita il lampo bianco): scelta salvata, altrimenti preferenza del dispositivo */
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem("cs_theme"); } catch (e) {}
+    if (t !== "light" && t !== "dark") t = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", t);
+    document.getElementById("metaTheme").setAttribute("content", t === "dark" ? "#111113" : "#F6F6F7");
+  })();
+</script>
+<title>Card Studio by Niccolò Berardi</title>
+<style>
+  /* ---------- Palette: neutra (stile editoriale) + viola per tutto ciò che è cliccabile ---------- */
+  :root{
+    --serif: ui-serif, "New York", Georgia, serif;   /* su Apple = New York */
+    --sans: -apple-system, system-ui, "SF Pro Text", "Helvetica Neue", sans-serif;
+    /* TEMA CHIARO (predefinito) */
+    --bg:#F6F6F7; --paper:#FFFFFF; --line:#E2E2E6; --ink:#18181B; --muted:#6E6E77;
+    --acc:#6D28D9; --acc-btn:#6D28D9; --acc-press:#5B21B6; --on-acc:#FFFFFF;
+    --acc-soft:rgba(109,40,217,.07); --acc-soft2:rgba(109,40,217,.14);
+    --acc-line:rgba(109,40,217,.45); --acc-line-soft:rgba(109,40,217,.30);
+    --ok:#17743F; --ok-bg:#DDF3E4; --bad:#B03030; --bad-bg:#F9DEDE;
+    --shadow:0 1px 2px rgba(24,24,27,.05), 0 6px 18px rgba(24,24,27,.05);
+    --arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1.5l6 6 6-6' fill='none' stroke='%236D28D9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    color-scheme:light;
+  }
+  /* TEMA SCURO: attivato da data-theme="dark" sul tag <html> */
+  :root[data-theme="dark"]{
+    --bg:#111113; --paper:#1A1A1E; --line:#2C2C32; --ink:#F4F4F6; --muted:#9E9EA9;
+    --acc:#8B5CF6; --acc-btn:#7C3AED; --acc-press:#6D28D9;   /* testo/bordi #8B5CF6; riempimento #7C3AED per il contrasto col testo bianco */
+    --acc-soft:rgba(139,92,246,.12); --acc-soft2:rgba(139,92,246,.22);
+    --acc-line:rgba(139,92,246,.55); --acc-line-soft:rgba(139,92,246,.38);
+    --ok:#6FD99A; --ok-bg:#123A25; --bad:#FF8A8A; --bad-bg:#43191C;
+    --shadow:0 1px 2px rgba(0,0,0,.35);
+    --arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1.5l6 6 6-6' fill='none' stroke='%238B5CF6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    color-scheme:dark;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0; background:var(--bg); color:var(--ink); font:17px/1.5 var(--sans);
+    /* margini di sicurezza per notch e barra Home */
+    padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right))
+            max(24px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+  }
+  main{ max-width:720px; margin:0 auto; }
+  .top{ display:flex; align-items:center; justify-content:space-between; gap:14px; margin:8px 0 20px; }
+  h1{ font:700 28px/1.2 var(--serif); margin:0; }
+  h2{ font:600 18px/1.3 var(--sans); margin:0 0 12px; }
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:16px; box-shadow:var(--shadow); }
+  label{ display:block; font-size:15px; color:var(--muted); margin:14px 0 6px; }
+  input[type=text],input[type=password],select{
+    width:100%; min-height:48px; padding:10px 12px; font:inherit; font-size:17px; /* >=16px evita lo zoom di iOS */
+    color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:12px;
+  }
+  /* Selettore numerico: viola, con freccia coerente */
+  select{
+    -webkit-appearance:none; appearance:none; accent-color:var(--acc);
+    border-color:var(--acc-line); background:var(--acc-soft) var(--arrow) no-repeat right 16px center; padding-right:44px;
+  }
+  .row{ display:flex; gap:10px; align-items:stretch; }
+  .row > input{ flex:1; min-width:0; }
+
+  /* Pulsanti secondari: bordo, testo e leggero sfondo viola */
+  button{
+    font:600 17px var(--sans); min-height:52px; padding:12px 18px; border-radius:14px;
+    border:1px solid var(--acc-line); background:var(--acc-soft); color:var(--acc); cursor:pointer;
+    touch-action:manipulation; transition:transform .12s ease, background-color .15s ease, border-color .15s ease;
+  }
+  button:active{ transform:scale(.98); background:var(--acc-soft2); }
+  button:disabled{ opacity:.55; cursor:default; }
+  /* Pulsanti principali: viola pieno, testo bianco */
+  button.primary{ background:var(--acc-btn); color:var(--on-acc); border-color:transparent; }
+  button.primary:active{ background:var(--acc-press); }
+  button.block{ width:100%; margin-top:12px; }
+  :focus-visible{ outline:3px solid var(--acc); outline-offset:2px; }
+
+  /* Interruttore tema chiaro/scuro */
+  .theme{ position:relative; flex:none; width:64px; height:36px; min-height:36px; padding:0; border-radius:18px; }
+  .theme .knob{
+    position:absolute; top:3px; left:3px; width:28px; height:28px; border-radius:50%;
+    background:var(--acc-btn); color:var(--on-acc); display:grid; place-items:center; transition:transform .25s ease;
+  }
+  .theme .knob svg{ width:16px; height:16px; }
+  .theme .moon{ display:none; }
+  :root[data-theme="dark"] .theme .knob{ transform:translateX(28px); }
+  :root[data-theme="dark"] .theme .sun{ display:none; }
+  :root[data-theme="dark"] .theme .moon{ display:block; }
+
+  .files{ list-style:none; padding:0; margin:12px 0 0; font-size:15px; color:var(--muted); }
+  .files li{ padding:6px 0; border-top:1px solid var(--line); word-break:break-word; }
+  .setting{ display:flex; gap:10px; align-items:center; justify-content:space-between; min-height:52px; padding:6px 6px 6px 14px; background:var(--bg); border:1px solid var(--line); border-radius:12px; }
+  .setting .val{ min-width:0; overflow-wrap:anywhere; }
+  .setting button{ flex:none; min-height:40px; padding:8px 12px; font-size:15px; }
+  .stack{ display:grid; gap:10px; }
+  .row2{ display:flex; gap:10px; }
+  .row2 button{ flex:1; }
+  .status{ min-height:24px; margin:12px 2px 0; font-size:15px; color:var(--muted); }
+  .status.err{ color:var(--bad); }
+  [hidden]{ display:none !important; }
+
+  /* ---------- Studio ---------- */
+  .meta{ display:flex; justify-content:space-between; font-size:15px; color:var(--muted); margin-bottom:8px; }
+  .bar{ height:10px; background:var(--line); border-radius:6px; overflow:hidden; margin-bottom:20px; }
+  .bar i{ display:block; height:100%; width:0; background:var(--acc); transition:width .3s; }
+  .q{ font:600 23px/1.35 var(--serif); margin:0 0 20px; }
+  .opts{ display:grid; gap:12px; }
+  /* Opzioni cliccabili: bordo viola delicato, sfondo tinto, lettera in viola */
+  .opt{
+    display:flex; gap:12px; align-items:flex-start; text-align:left; font-weight:500; width:100%; min-height:60px;
+    color:var(--ink); background:var(--acc-soft); border-color:var(--acc-line-soft);
+  }
+  .opt .k{ flex:none; width:28px; height:28px; border-radius:8px; background:var(--acc-soft2); color:var(--acc); display:grid; place-items:center; font-size:15px; font-weight:700; }
+  /* Dopo la risposta: feedback verde/rosso invariato, le altre opzioni tornano neutre */
+  .opt:disabled{ opacity:1; cursor:default; }
+  .opt:disabled:not(.ok):not(.bad){ background:var(--paper); border-color:var(--line); opacity:.75; }
+  .opt:disabled:not(.ok):not(.bad) .k{ background:var(--bg); color:var(--muted); }
+  .opt.ok{ background:var(--ok-bg); border-color:var(--ok); }
+  .opt.bad{ background:var(--bad-bg); border-color:var(--bad); }
+  .opt.ok .k{ background:var(--ok); color:var(--paper); }
+  .opt.bad .k{ background:var(--bad); color:var(--paper); }
+  .fb{ margin-top:18px; padding:16px; border-radius:14px; border:1px solid var(--line); }
+  .fb.ok{ background:var(--ok-bg); border-color:var(--ok); }
+  .fb.bad{ background:var(--bad-bg); border-color:var(--bad); }
+  .fb strong{ display:block; margin-bottom:6px; }
+  .score{ font:700 64px/1 var(--serif); margin:8px 0 6px; }
+  /* ---------- Schermata iniziale e pagine di sezione ---------- */
+  .status:empty{ display:none; }
+  .home{ min-height:55vh; min-height:55dvh; display:flex; flex-direction:column; justify-content:center; gap:18px; padding:8px 0 24px; }
+  .home .files{ margin:-6px 0 0; }
+  .files:empty{ display:none; }
+  .pdfbtn{ width:100%; display:flex; flex-direction:column; align-items:center; gap:2px; padding:18px 16px; border:2px dashed var(--acc-line); background:var(--acc-soft); color:var(--acc); border-radius:18px; }
+  .pdfbtn svg{ width:26px; height:26px; margin-bottom:4px; }
+  .pdfbtn small{ font:500 14px/1.3 var(--sans); color:var(--muted); }
+  .choices{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .choice{ min-height:140px; padding:16px 10px; border-radius:20px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; text-align:center; font-size:18px; line-height:1.25; }
+  .choice svg{ width:32px; height:32px; }
+  .page-head{ display:flex; align-items:center; gap:12px; margin:0 0 16px; }
+  .page-head h2{ margin:0; font:700 22px/1.25 var(--serif); }
+  .back{ min-height:44px; padding:8px 14px; font-size:15px; }
+  .hint{ color:var(--muted); font-size:15px; margin:0 0 12px; }
+  summary{ display:flex; align-items:center; justify-content:space-between; font:600 18px var(--sans); min-height:28px; cursor:pointer; list-style:none; }
+  summary::-webkit-details-marker{ display:none; }
+  summary::after{ content:"›"; font-size:24px; line-height:1; color:var(--acc); transform:rotate(90deg); transition:transform .2s; }
+  details[open] > summary::after{ transform:rotate(-90deg); }
+
+  /* ---------- Mappa mentale ---------- */
+  main.wide{ max-width:1100px; }
+  .mm-bar{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .mm-bar h2{ margin:0; font:700 22px/1.25 var(--serif); }
+  .mm-tools{ display:flex; flex-wrap:wrap; gap:8px; }
+  .mm-tools button{ min-height:44px; padding:8px 14px; font-size:15px; }
+  .mm-layout{ display:grid; gap:16px; }
+  .mm-scroll{ margin:0; padding:20px; overflow:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; max-height:62vh; max-height:62dvh; cursor:grab; }
+  .mm-scroll.drag{ cursor:grabbing; user-select:none; }
+  .mm-tree{ width:max-content; min-width:100%; }
+  .mm-tree ul{ list-style:none; margin:0; padding:0; }
+  .mm-tree li{ display:flex; align-items:center; position:relative; }
+  .mm-tree li > ul{ margin-left:34px; position:relative; }
+  /* Linee di collegamento: tratto dal genitore, dorsale verticale e tratto verso ogni figlio */
+  .mm-tree li > ul::before{ content:""; position:absolute; left:-34px; top:50%; width:34px; border-top:2px solid var(--acc-line-soft); }
+  .mm-tree li > ul > li{ padding:6px 0 6px 34px; }
+  .mm-tree li > ul > li::before{ content:""; position:absolute; left:0; top:50%; width:34px; border-top:2px solid var(--acc-line-soft); }
+  .mm-tree li > ul > li::after{ content:""; position:absolute; left:0; top:0; bottom:0; border-left:2px solid var(--acc-line-soft); }
+  .mm-tree li > ul > li:first-child::after{ top:50%; }
+  .mm-tree li > ul > li:last-child::after{ bottom:50%; }
+  .mm-tree li > ul > li:only-child::after{ display:none; }
+  .mm-tree li.col > ul{ display:none; }
+  .nd{ display:flex; align-items:center; gap:6px; }
+  .pill{ max-width:240px; min-height:44px; padding:8px 14px; border-radius:999px; text-align:left; font:600 16px/1.3 var(--sans); color:var(--ink); background:var(--acc-soft); border:1px solid var(--acc-line-soft); }
+  .pill.d0{ font:700 18px/1.3 var(--serif); background:var(--paper); border:2px solid var(--acc); color:var(--acc); }
+  .pill.d1{ background:var(--acc-soft2); border-color:var(--acc-line); }
+  .pill.sel, .pill.sel:active{ background:var(--acc-btn); color:var(--on-acc); border-color:transparent; box-shadow:0 0 0 3px var(--acc-line); }
+  .tg{ flex:none; width:32px; height:32px; min-height:32px; padding:0; border-radius:50%; font-size:18px; line-height:1; display:grid; place-items:center; }
+  .mm-detail{ padding:18px 20px; margin:0; }
+  .mm-detail .path{ font-size:14px; color:var(--muted); margin:0 0 4px; }
+  .mm-detail .kw{ font:700 22px/1.25 var(--serif); margin:0 0 10px; }
+  .mm-detail .desc{ margin:0 0 14px; }
+  @media (max-width:899px){   /* mobile: riquadro fisso in basso */
+    .mm-detail{ position:fixed; left:0; right:0; bottom:0; z-index:20; border-radius:18px 18px 0 0; max-height:42vh; max-height:42dvh; overflow:auto; padding-bottom:max(18px,env(safe-area-inset-bottom)); box-shadow:0 -8px 30px rgba(0,0,0,.22); }
+    .mm-layout.has-detail .mm-scroll{ max-height:30vh; max-height:30dvh; }
+  }
+  @media (min-width:900px){   /* desktop/iPad largo: riquadro di lato */
+    .mm-layout.has-detail{ grid-template-columns:minmax(0,1fr) 320px; align-items:start; }
+    .mm-detail{ position:sticky; top:16px; }
+    .mm-scroll{ max-height:72vh; }
+  }
+  @media (max-width:480px){ h1{ font-size:23px; } }
+  @media (min-width:700px){ body{ font-size:18px; } .q{ font-size:27px; } .card{ padding:28px; } }
+  @media (prefers-reduced-motion:reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1>Card Studio by Niccolò Berardi</h1>
+    <!-- Interruttore manuale chiaro/scuro -->
+    <button id="themeToggle" class="theme" type="button" role="switch" aria-checked="false" aria-label="Passa alla modalità scura">
+      <span class="knob" aria-hidden="true">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </span>
+    </button>
+  </header>
+
+  <!-- ===================== SCHERMATA 1: impostazioni e dispense ===================== -->
+  <!-- Messaggi di stato: uno solo, visibile in tutte le schermate di preparazione -->
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+
+  <!-- ===================== SCHERMATA INIZIALE ===================== -->
+  <section id="viewHome" class="home">
+    <input id="pdfInput" type="file" accept=".pdf,application/pdf" multiple hidden>
+    <!-- Pulsante di tipo diverso (bordo tratteggiato): carica le dispense da File / iCloud Drive -->
+    <button class="pdfbtn" id="btnPick" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+      <span>Carica dispense PDF</span>
+      <small>Da File / iCloud Drive</small>
+    </button>
+    <ul class="files" id="fileList"></ul>
+    <div class="choices">
+      <button class="primary choice" id="goCards" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/></svg><span>Flash card</span></button>
+      <button class="primary choice" id="goMap" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2.5"/><circle cx="4.5" cy="5.5" r="1.8"/><circle cx="19.5" cy="5.5" r="1.8"/><circle cx="4.5" cy="18.5" r="1.8"/><circle cx="19.5" cy="18.5" r="1.8"/><path d="M10 10.2L6 7M14 10.2L18 7M10 13.8L6 17M14 13.8L18 17"/></svg><span>Mappa concettuale</span></button>
+    </div>
+  </section>
+
+  <!-- ===================== FLASH CARD: generazione del mazzo ===================== -->
+  <section id="viewCards" hidden>
+    <div class="page-head"><button class="back" id="backCards" type="button">‹ Indietro</button><h2>Flash card</h2></div>
+    <p class="hint" id="hintCards">Carica prima le dispense PDF dalla schermata iniziale.</p>
+    <div class="card">
+      <label for="count">Numero di card</label>
+      <select id="count">
+        <option>5</option><option selected>10</option><option>15</option><option>20</option>
+      </select>
+    </div>
+    <button class="block primary" id="btnGen" disabled>Genera il mazzo</button>
+    <button class="block" id="btnLoad">Carica mazzo da file (.json)</button>
+    <input id="deckInput" type="file" accept=".json,application/json" hidden>
+  </section>
+
+  <!-- ===================== MAPPA CONCETTUALE: creazione / riapertura ===================== -->
+  <section id="viewMap" hidden>
+    <div class="page-head"><button class="back" id="backMap" type="button">‹ Indietro</button><h2>Mappa concettuale</h2></div>
+    <!-- Compare solo se esiste una mappa salvata (localStorage, chiave cs_mindmap) -->
+    <button class="block primary" id="btnOpenMap" hidden style="margin:0 0 12px"></button>
+    <p class="hint" id="hintMap">Carica prima le dispense PDF dalla schermata iniziale.</p>
+    <button class="block primary" id="btnMap" disabled style="margin-top:0">Genera mappa concettuale</button>
+    <button class="block" id="btnLoadMap" type="button">Carica mappa da file (.json)</button>
+  </section>
+
+  <!-- ===================== SCHERMATA 2: studio a card singola ===================== -->
+  <section id="viewStudy" hidden>
+    <div class="meta"><span id="progLabel"></span><span id="scoreLabel"></span></div>
+    <div class="bar"><i id="progBar"></i></div>
+    <div class="card">
+      <p class="q" id="qText"></p>
+      <div class="opts" id="opts"></div>
+      <div class="fb" id="fb" hidden role="status" aria-live="polite"></div>
+      <button class="block primary" id="btnNext" hidden></button>
+    </div>
+  </section>
+
+  <!-- ===================== SCHERMATA: mappa mentale ===================== -->
+  <section id="viewMindMap" hidden>
+    <div class="mm-bar">
+      <h2 id="mmTitle"></h2>
+      <div class="mm-tools">
+        <button id="mmExpand" type="button">Espandi tutto</button>
+        <button id="mmCollapse" type="button">Comprimi tutto</button>
+        <button id="mmSave" type="button">Salva Mappa su File (.json)</button>
+        <button id="mmBack" type="button">Indietro</button>
+      </div>
+    </div>
+    <div class="mm-layout" id="mmLayout">
+      <div class="card mm-scroll" id="mmScroll"><div class="mm-tree" id="mmTree"></div></div>
+      <aside class="card mm-detail" id="mmDetail" hidden aria-live="polite">
+        <p class="path" id="mmPath"></p>
+        <p class="kw" id="mmKw"></p>
+        <p class="desc" id="mmDesc"></p>
+        <button id="mmClose" type="button">Chiudi</button>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ===================== SCHERMATA 3: riepilogo ===================== -->
+  <section id="viewSummary" hidden>
+    <div class="card">
+      <h2>Risultato</h2>
+      <div class="score" id="finalScore"></div>
+      <p id="finalMsg" style="color:var(--muted);margin:0 0 8px"></p>
+      <button class="block primary" id="btnRetryWrong">Ripeti solo le sbagliate</button>
+      <button class="block" id="btnRetryAll">Rifai tutto il mazzo</button>
+      <button class="block" id="btnSaveDeck">Salva mazzo su File (.json)</button>
+      <button class="block" id="btnHome">Nuovo mazzo</button>
+    </div>
+  </section>
+  <!-- Impostazioni (chiave API e modello): visibili in home, flash card e mappa concettuale -->
+  <div id="settingsWrap">
+    <details class="card" id="settingsBox">
+      <summary>Impostazioni</summary>
+
+      <label>Chiave API Gemini (salvata solo su questo dispositivo)</label>
+      <!-- Chiave già salvata: si vede solo un riepilogo e il pulsante per modificarla -->
+      <div class="setting" id="keyView"><span class="val" id="keyMask"></span><button id="btnEditKey" type="button">Modifica chiave API</button></div>
+      <div class="stack" id="keyEdit" hidden>
+        <div class="row">
+          <input id="apiKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Incolla la chiave" aria-label="Chiave API Gemini">
+          <button id="btnShowKey" type="button" aria-pressed="false">Mostra</button>
+        </div>
+        <div class="row2"><button class="primary" id="btnSaveKey" type="button">Salva chiave</button><button id="btnCancelKey" type="button">Annulla</button></div>
+      </div>
+      <label>Modello</label>
+      <div class="setting" id="modelView"><span class="val" id="modelName"></span><button id="btnEditModel" type="button">Modifica modello</button></div>
+      <div class="stack" id="modelEdit" hidden>
+        <input id="model" type="text" autocapitalize="off" spellcheck="false" aria-label="Modello">
+        <div class="row2"><button class="primary" id="btnSaveModel" type="button">Salva modello</button><button id="btnCancelModel" type="button">Annulla</button></div>
+      </div>
+          </details>
+  </div>
+</main>
+
+<script>
+"use strict";
+/* =====================================================================
+   Card Studio: quiz generati con Gemini a partire dai tuoi PDF.
+   Tutto gira nel browser: nessun server, nessun dato inviato tranne
+   il testo dei PDF verso l'API di Gemini quando premi "Genera".
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+
+/* ---------- Archivio locale (try/catch: Safari in navigazione privata può rifiutarlo) ---------- */
+const store = {
+  get(k, d = "") { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} }
+};
+
+/* ---------- Tema chiaro / scuro ---------- */
+// Scelta manuale salvata in cs_theme; se assente si segue il dispositivo (prefers-color-scheme)
+const THEME_COLOR = { light: "#F6F6F7", dark: "#111113" };   // colore della barra di Safari (theme-color)
+const darkMQ = window.matchMedia("(prefers-color-scheme: dark)");
+let themeChosen = ["light", "dark"].includes(store.get("cs_theme"));
+function applyTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  $("metaTheme").setAttribute("content", THEME_COLOR[t]);
+  const b = $("themeToggle");
+  b.setAttribute("aria-checked", String(t === "dark"));
+  b.setAttribute("aria-label", t === "dark" ? "Passa alla modalità chiara" : "Passa alla modalità scura");
+}
+applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
+$("themeToggle").addEventListener("click", () => {
+  const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+  themeChosen = true; store.set("cs_theme", next); applyTheme(next);
+});
+// Finché l'utente non sceglie, segue i cambi di tema del sistema
+if (darkMQ.addEventListener) darkMQ.addEventListener("change", e => { if (!themeChosen) applyTheme(e.matches ? "dark" : "light"); });
+
+/* ---------- Stato ---------- */
+let pdfTexts = [];      // [{name, pages, chars, text}]
+let deck = [];          // mazzo completo (generato o caricato)
+let deckSources = [];   // nomi dei PDF da cui deriva il mazzo
+let run = null;         // sessione di studio corrente
+let locked = false;     // blocca i pulsanti dopo la risposta
+
+/* ---------- Utilità ---------- */
+function setStatus(msg, isErr = false) { const s = $("status"); s.textContent = msg; s.className = "status" + (isErr ? " err" : ""); }
+// show(): mostra una schermata; le impostazioni compaiono solo in home, flash card e mappa
+function show(view) { for (const v of ["viewHome", "viewCards", "viewMap", "viewStudy", "viewSummary", "viewMindMap"]) $(v).hidden = (v !== view);
+  document.querySelector("main").classList.toggle("wide", view === "viewMindMap");
+  $("settingsWrap").hidden = !["viewHome", "viewCards", "viewMap"].includes(view); window.scrollTo(0, 0); }
+function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+/* Mescola le 4 opzioni, così la risposta giusta non sta sempre nella stessa posizione */
+function shuffleOptions(c) {
+  const idx = shuffle([0, 1, 2, 3]);
+  return { ...c, opzioni: idx.map(i => c.opzioni[i]), risposta_corretta: idx.indexOf(c.risposta_corretta) };
+}
+
+/* Controlla che una card abbia esattamente 4 opzioni e un indice valido */
+function validCard(c) {
+  return c && typeof c.domanda === "string" && Array.isArray(c.opzioni) && c.opzioni.length === 4 &&
+    c.opzioni.every(o => typeof o === "string") && Number.isInteger(c.risposta_corretta) &&
+    c.risposta_corretta >= 0 && c.risposta_corretta <= 3 && typeof c.spiegazione === "string";
+}
+
+/* ---------- Impostazioni salvate ---------- */
+// gemini-2.5-flash non è più disponibile per i nuovi utenti: se è salvato, lo sostituisco col modello attuale
+const DEFAULT_MODEL = "gemini-3.8-flash";
+let apiKey = store.get("cs_key").trim();
+let model = store.get("cs_model", DEFAULT_MODEL).trim() || DEFAULT_MODEL;
+if (model === "gemini-2.5-flash") { model = DEFAULT_MODEL; store.set("cs_model", model); }
+let editingKey = !apiKey;      // se manca la chiave, mostro subito il campo
+let editingModel = false;
+
+function renderSettings() {
+  $("keyView").hidden = editingKey;     $("keyEdit").hidden = !editingKey;
+  $("modelView").hidden = editingModel; $("modelEdit").hidden = !editingModel;
+  $("keyMask").textContent = apiKey ? "Chiave salvata: ••••" + apiKey.slice(-4) : "";
+  $("modelName").textContent = model;
+  $("btnCancelKey").hidden = !apiKey;   // senza chiave salvata non c'è nulla a cui tornare
+}
+
+$("btnEditKey").addEventListener("click", () => {
+  editingKey = true; $("apiKey").value = apiKey; $("apiKey").type = "password";
+  $("btnShowKey").textContent = "Mostra"; $("btnShowKey").setAttribute("aria-pressed", "false");
+  renderSettings(); $("apiKey").focus();
+});
+$("btnSaveKey").addEventListener("click", () => {
+  const v = $("apiKey").value.trim();
+  if (!v) return setStatus("Incolla la chiave API prima di salvare.", true);
+  apiKey = v; store.set("cs_key", v); editingKey = false; $("apiKey").value = ""; setStatus(""); renderSettings();
+});
+$("btnCancelKey").addEventListener("click", () => { editingKey = false; $("apiKey").value = ""; renderSettings(); });
+$("btnShowKey").addEventListener("click", e => {
+  const k = $("apiKey"), show = k.type === "password";
+  k.type = show ? "text" : "password";
+  e.target.textContent = show ? "Nascondi" : "Mostra";
+  e.target.setAttribute("aria-pressed", String(show));
+});
+
+$("btnEditModel").addEventListener("click", () => { editingModel = true; $("model").value = model; renderSettings(); $("model").focus(); });
+$("btnSaveModel").addEventListener("click", () => {
+  model = $("model").value.trim() || DEFAULT_MODEL; store.set("cs_model", model); editingModel = false; renderSettings();
+});
+$("btnCancelModel").addEventListener("click", () => { editingModel = false; renderSettings(); });
+
+// Invio = salva
+$("apiKey").addEventListener("keydown", e => { if (e.key === "Enter") $("btnSaveKey").click(); });
+$("model").addEventListener("keydown", e => { if (e.key === "Enter") $("btnSaveModel").click(); });
+
+$("count").value = store.get("cs_count", "10");
+$("count").addEventListener("change", e => store.set("cs_count", e.target.value));
+renderSettings();
+$("settingsBox").open = !apiKey;   // senza chiave salvata il riquadro parte aperto
+
+/* =====================================================================
+   PDF.js: caricato solo al primo uso. Il worker viene scaricato e avviato
+   da un Blob locale: evita i blocchi cross-origin dei Worker su Safari.
+   ===================================================================== */
+const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+let pdfReady = null;
+function loadPdfJs() {
+  if (pdfReady) return pdfReady;
+  pdfReady = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = PDFJS + "pdf.min.js";
+    s.onload = async () => {
+      try {
+        const code = await (await fetch(PDFJS + "pdf.worker.min.js")).text();
+        pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
+      } catch { pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + "pdf.worker.min.js"; }
+      resolve();
+    };
+    s.onerror = () => { pdfReady = null; reject(new Error("Impossibile caricare PDF.js. Controlla la connessione.")); };
+    document.head.appendChild(s);
+  });
+  return pdfReady;
+}
+
+async function extractPdf(file) {
+  await loadPdfJs();
+  const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+  let text = "";
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const content = await (await pdf.getPage(p)).getTextContent();
+    text += content.items.map(i => i.str).join(" ") + "\n";
+  }
+  return { name: file.name, pages: pdf.numPages, text: text.replace(/[ \t]+/g, " ").trim() };
+}
+
+/* ---------- Selezione dei PDF ---------- */
+$("btnPick").addEventListener("click", () => $("pdfInput").click());
+$("pdfInput").addEventListener("change", async e => {
+  const files = [...e.target.files];
+  e.target.value = "";
+  if (!files.length) return;
+  $("btnGen").disabled = true; $("btnMap").disabled = true;
+  pdfTexts = [];
+  $("fileList").innerHTML = "";
+  for (const f of files) {
+    setStatus("Leggo " + f.name + "…");
+    const li = document.createElement("li");
+    try {
+      const r = await extractPdf(f);
+      r.chars = r.text.length;
+      pdfTexts.push(r);
+      li.textContent = r.chars < 50
+        ? `${r.name}: nessun testo trovato (PDF scansionato?)`
+        : `${r.name}: ${r.pages} pagine, ${r.chars.toLocaleString("it-IT")} caratteri`;
+    } catch (err) { li.textContent = `${f.name}: errore di lettura (${err.message})`; }
+    $("fileList").appendChild(li);
+  }
+  const usable = pdfTexts.filter(p => p.chars >= 50);
+  $("btnGen").disabled = !usable.length; $("btnMap").disabled = !usable.length;
+  $("hintCards").hidden = usable.length > 0; $("hintMap").hidden = usable.length > 0;
+  setStatus(usable.length ? "Dispense pronte: scegli Flash card o Mappa concettuale." : "Nessun testo estraibile dai file scelti.", !usable.length);
+});
+
+/* =====================================================================
+   Generazione con Gemini: JSON strutturato, solo dal testo dei PDF
+   ===================================================================== */
+const MAX_CHARS = 400000;   // limite prudenziale sul testo inviato
+const SYSTEM = "Sei un docente universitario che prepara quiz di verifica. Usa ESCLUSIVAMENTE le informazioni contenute nel testo delle dispense fornito: non aggiungere nozioni esterne e non inventare dati. Scrivi in italiano. " +
+  "DOMANDE: ogni domanda deve essere chiara, completa e comprensibile da sola, anche senza avere davanti la dispensa: includi il contesto necessario (argomento, termine, situazione) ma resta concisa, al massimo 1 o 2 frasi. " +
+  "Nella domanda e nelle opzioni NON fare mai riferimento alla fonte: vietato scrivere espressioni come 'secondo la dispensa', 'come nella dispensa 4', 'nel testo', 'nel documento', 'nel PDF', 'nella slide', né numeri di dispensa o di pagina. La domanda contiene solo il quesito. " +
+  "OPZIONI: esattamente 4, plausibili, di lunghezza simile, una sola corretta. " +
+  "SPIEGAZIONE: 2-3 frasi che chiariscono perché la risposta è corretta richiamando il concetto, senza citare numeri di dispensa o di pagina. " +
+  "Distribuisci le domande su tutti gli argomenti del testo, senza ripeterti.";
+
+/* Rete di sicurezza: se il modello inserisce comunque un riferimento alla fonte, lo tolgo dal testo di domande e opzioni */
+const SRC = "(?:dispens\\w+|test[oi]|document\\w+|pdf|slide)";
+const NUM = "(?:\\s*(?:n\\.?°?\\s*)?\\d+)?";
+function stripRefs(t) {
+  t = t.replace(new RegExp("\\s*\\([^)]*\\b" + SRC + "\\b[^)]*\\)", "gi"), "")                                  // (dispensa 4)
+       .replace(new RegExp(",?\\s*come\\s+(?:\\w+\\s+)?(?:nella|nel|dalla|dal|nelle|nei)\\s+" + SRC + NUM, "gi"), "") // come nella dispensa 4
+       .replace(new RegExp("^(?:secondo|in base (?:a|alla|al)|stando a(?:lla)?)\\s+(?:la\\s+|il\\s+)?" + SRC + NUM + "\\s*,\\s*", "i"), "")
+       .replace(/\s{2,}/g, " ").replace(/\s+([?,.;:])/g, "$1").trim();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+const cleanCard = c => (c && typeof c.domanda === "string" && Array.isArray(c.opzioni))
+  ? { ...c, domanda: stripRefs(c.domanda), opzioni: c.opzioni.map(o => typeof o === "string" ? stripRefs(o) : o) } : c;
+
+$("btnGen").addEventListener("click", async () => {
+  const key = apiKey;
+  if (!key) return setStatus("Inserisci la chiave API di Gemini nelle impostazioni.", true);
+  const sources = pdfTexts.filter(p => p.chars >= 50);
+  let text = sources.map(p => `### DISPENSA: ${p.name}\n${p.text}`).join("\n\n");
+  let note = "";
+  if (text.length > MAX_CHARS) { text = text.slice(0, MAX_CHARS); note = " (testo troppo lungo: uso i primi " + MAX_CHARS.toLocaleString("it-IT") + " caratteri)"; }
+  const n = parseInt($("count").value, 10);
+
+  $("btnGen").disabled = true;
+  setStatus("Genero " + n + " card…" + note);
+  try {
+    const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" +
+      encodeURIComponent(model) + ":generateContent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SYSTEM }] },
+        contents: [{ role: "user", parts: [{ text: `Genera esattamente ${n} domande a risposta multipla dal testo seguente. Ogni domanda deve essere autosufficiente e non citare la dispensa.\n\n=== TESTO DELLE DISPENSE ===\n${text}` }] }],
+        generationConfig: {
+          // Modelli Gemini 3: ragionamento "low" = risposte molto più rapide ("minimal" non è supportato da 3.8)
+          ...(/gemini-3/.test(model) ? { thinkingConfig: { thinkingLevel: "low" } } : {}),
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                domanda: { type: "STRING" },
+                opzioni: { type: "ARRAY", items: { type: "STRING" } },
+                risposta_corretta: { type: "INTEGER" },
+                spiegazione: { type: "STRING" }
+              },
+              required: ["domanda", "opzioni", "risposta_corretta", "spiegazione"]
+            }
+          }
+        }
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error?.message || ("Errore HTTP " + res.status));
+    const raw = (data.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("");
+    const cards = JSON.parse(raw.replace(/```json|```/g, "").trim()).map(cleanCard).filter(validCard);
+    if (!cards.length) throw new Error("Il modello non ha restituito card valide. Riprova.");
+    deck = cards;
+    deckSources = sources.map(p => p.name);
+    setStatus("");
+    start(deck);
+  } catch (err) {
+    setStatus("Generazione non riuscita: " + err.message, true);
+  } finally { $("btnGen").disabled = false; }
+});
+
+/* =====================================================================
+   Salvataggio / caricamento del mazzo (.json) per sincronizzare i dispositivi
+   ===================================================================== */
+async function saveDeck() {
+  const payload = { versione: 1, creato: new Date().toISOString(), fonti: deckSources, carte: deck };
+  const name = "mazzo-" + new Date().toISOString().slice(0, 10) + ".json";
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const file = new File([blob], name, { type: "application/json" });
+  // iPhone/iPad: il foglio di condivisione offre "Salva su File" (scegli la cartella iCloud Drive)
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); return; }
+    catch (e) { if (e.name === "AbortError") return; }
+  }
+  // Mac e altri browser: download classico
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+$("btnSaveDeck").addEventListener("click", saveDeck);
+
+$("btnLoad").addEventListener("click", () => $("deckInput").click());
+$("deckInput").addEventListener("change", async e => {
+  const f = e.target.files[0]; e.target.value = "";
+  if (!f) return;
+  try {
+    const j = JSON.parse(await f.text());
+    if (j && j.mappa) { mmImport(j); return; }   // file di una mappa mentale
+    const cards = (Array.isArray(j) ? j : j.carte || []).filter(validCard);
+    if (!cards.length) throw new Error("nessuna card valida nel file");
+    deck = cards; deckSources = j.fonti || [];
+    setStatus("");
+    start(deck);
+  } catch (err) { setStatus("File non valido: " + err.message, true); }
+});
+
+/* =====================================================================
+   Studio a card singola
+   ===================================================================== */
+function start(cards) {
+  run = { cards: shuffle(cards).map(shuffleOptions), i: 0, score: 0, wrong: [] };
+  show("viewStudy");
+  render();
+}
+
+function render() {
+  const c = run.cards[run.i], total = run.cards.length;
+  locked = false;
+  $("progLabel").textContent = `Card ${run.i + 1} di ${total}`;
+  $("scoreLabel").textContent = `Corrette: ${run.score}`;
+  $("progBar").style.width = (run.i / total * 100) + "%";
+  $("qText").textContent = c.domanda;
+  $("fb").hidden = true; $("btnNext").hidden = true;
+  const box = $("opts"); box.innerHTML = "";
+  c.opzioni.forEach((txt, k) => {
+    const b = document.createElement("button");
+    b.className = "opt"; b.type = "button";
+    const key = document.createElement("span"); key.className = "k"; key.textContent = "ABCD"[k];
+    const t = document.createElement("span"); t.textContent = txt;
+    b.append(key, t);
+    b.addEventListener("click", () => answer(k));
+    box.appendChild(b);
+  });
+}
+
+function answer(k) {
+  if (locked) return;           // evita i doppi tocchi
+  locked = true;
+  const c = run.cards[run.i], right = c.risposta_corretta, btns = [...document.querySelectorAll(".opt")];
+  btns.forEach(b => b.disabled = true);
+  btns[right].classList.add("ok");
+  const fb = $("fb");
+  fb.hidden = false;
+  fb.textContent = "";
+  const title = document.createElement("strong");
+  const body = document.createElement("span");
+  body.textContent = c.spiegazione;
+  if (k === right) {
+    run.score++;
+    fb.className = "fb ok"; title.textContent = "Corretto.";
+  } else {
+    btns[k].classList.add("bad");
+    run.wrong.push(c);
+    fb.className = "fb bad"; title.textContent = "Risposta sbagliata. Ecco perché:";
+  }
+  fb.append(title, body);
+  $("scoreLabel").textContent = `Corrette: ${run.score}`;
+  $("progBar").style.width = ((run.i + 1) / run.cards.length * 100) + "%";
+  const next = $("btnNext");
+  next.textContent = run.i + 1 < run.cards.length ? "Prossima card" : "Vedi il risultato";
+  next.hidden = false;
+  next.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+$("btnNext").addEventListener("click", () => {
+  if (run.i + 1 < run.cards.length) { run.i++; render(); window.scrollTo(0, 0); }
+  else summary();
+});
+
+/* ---------- Riepilogo finale ---------- */
+function summary() {
+  const total = run.cards.length, ok = run.score, pct = ok / total;
+  $("finalScore").textContent = `${ok}/${total}`;
+  $("finalMsg").textContent = pct === 1 ? "Tutte giuste." : pct >= 0.7 ? "Buon risultato: ripassa le sbagliate per chiudere." : "Rileggi la dispensa e riprova con le card sbagliate.";
+  $("btnRetryWrong").hidden = run.wrong.length === 0;
+  $("btnRetryWrong").textContent = `Ripeti solo le sbagliate (${run.wrong.length})`;
+  show("viewSummary");
+}
+$("btnRetryWrong").addEventListener("click", () => start(run.wrong));
+$("btnRetryAll").addEventListener("click", () => start(deck));
+$("btnHome").addEventListener("click", () => show("viewCards"));
+
+/* =====================================================================
+   MAPPA MENTALE
+   ===================================================================== */
+// Schema Gemini: 4 livelli espliciti (categoria + 3 livelli di sottocategorie), perché lo schema non può essere ricorsivo
+const mmNode = child => ({ type: "OBJECT", properties: { parola_chiave: { type: "STRING" }, descrizione: { type: "STRING" },
+  ...(child ? { sottocategorie: { type: "ARRAY", items: child } } : {}) }, required: ["parola_chiave", "descrizione"] });
+const MM_SCHEMA = { type: "OBJECT", properties: { titolo: { type: "STRING" },
+  categorie: { type: "ARRAY", items: mmNode(mmNode(mmNode(mmNode()))) } }, required: ["titolo", "categorie"] };
+const MM_SYSTEM = "Sei un docente universitario che prepara mappe mentali di studio. Usa ESCLUSIVAMENTE le informazioni contenute nel testo delle dispense fornito: non aggiungere nozioni esterne e non inventare dati. Scrivi in italiano. " +
+  "TITOLO: l'argomento centrale, massimo 3-5 parole. " +
+  "CATEGORIE: 4-7 macro-categorie principali; ogni categoria ha 2-4 sottocategorie, e solo dove serve ulteriori sottocategorie fino a 3 livelli di profondità. Punta a circa 40 nodi in totale, senza ripetizioni. " +
+  "PAROLA_CHIAVE: una sola parola chiave o concetto sintetico, massimo 2-4 parole, mai frasi lunghe. " +
+  "DESCRIZIONE: spiegazione chiara e completa di 2-4 frasi del concetto, basata esclusivamente sulle dispense, senza citare numeri di dispensa o di pagina.";
+
+let mm = null, mmSel = null;
+
+async function geminiJSON(system, prompt, schema) {   // stessa chiamata REST usata per il quiz
+  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent", {
+    method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+    body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { ...(/gemini-3/.test(model) ? { thinkingConfig: { thinkingLevel: "low" } } : {}), responseMimeType: "application/json", responseSchema: schema } })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error?.message || ("Errore HTTP " + res.status));
+  const raw = (data.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("");
+  return JSON.parse(raw.replace(/```json|```/g, "").trim());
+}
+
+/* Normalizza l'albero (anche se arriva da un file): testi puliti, max 3 livelli sotto la categoria */
+function mmNorm(n, d) {
+  if (!n || typeof n.parola_chiave !== "string" || !n.parola_chiave.trim()) return null;
+  const t = stripRefs(String(n.descrizione || "").trim()).replace(/^[,;:\s]+/, "");
+  const o = { parola_chiave: n.parola_chiave.trim(), descrizione: t.charAt(0).toUpperCase() + t.slice(1), sottocategorie: [] };
+  if (d < 3 && Array.isArray(n.sottocategorie)) o.sottocategorie = n.sottocategorie.map(k => mmNorm(k, d + 1)).filter(Boolean);
+  return o;
+}
+function mmClean(m) {
+  if (!m || typeof m.titolo !== "string" || !Array.isArray(m.categorie)) return null;
+  const cats = m.categorie.map(c => mmNorm(c, 0)).filter(Boolean);
+  return cats.length ? { titolo: m.titolo.trim() || "Mappa mentale", categorie: cats } : null;
+}
+
+/* Salvataggio automatico in localStorage */
+function mmSet(mappa, fonti) {
+  mm = { versione: 1, creato: new Date().toISOString(), fonti: fonti || [], mappa };
+  store.set("cs_mindmap", JSON.stringify(mm));
+  mmRefreshButton();
+}
+function mmSaved() { try { const j = JSON.parse(store.get("cs_mindmap", "null")); const m = j && mmClean(j.mappa); return m ? { ...j, mappa: m } : null; } catch { return null; } }
+function mmRefreshButton() {
+  const j = mmSaved(), b = $("btnOpenMap");
+  b.hidden = !j;
+  if (j) b.textContent = "Apri mappa concettuale salvata: " + j.mappa.titolo;
+}
+
+/* Disegno dell'albero (HTML + CSS: linee di collegamento fatte con pseudo-elementi, nessuna libreria) */
+function mmSetCol(li, collapsed) {
+  li.classList.toggle("col", collapsed);
+  const tg = li._tg;
+  if (tg) { tg.textContent = collapsed ? "+" : "−"; tg.setAttribute("aria-expanded", String(!collapsed)); }
+}
+function mmBuild(node, path, depth) {
+  const li = document.createElement("li"), nd = document.createElement("div");
+  nd.className = "nd";
+  const pill = document.createElement("button");
+  pill.type = "button"; pill.className = "pill d" + Math.min(depth, 2); pill.textContent = node.parola_chiave;
+  pill.addEventListener("click", () => mmSelect(pill, node, path));
+  nd.appendChild(pill); li.appendChild(nd);
+  const kids = node.sottocategorie || [];
+  if (kids.length) {
+    const ul = document.createElement("ul");
+    kids.forEach(k => ul.appendChild(mmBuild(k, path.concat(k.parola_chiave), depth + 1)));
+    li.appendChild(ul);
+    if (depth > 0) {   // la radice resta sempre aperta
+      const tg = document.createElement("button");
+      tg.type = "button"; tg.className = "tg"; tg.setAttribute("aria-label", "Espandi o comprimi il ramo " + node.parola_chiave);
+      li._tg = tg; nd.appendChild(tg);
+      mmSetCol(li, false);   // tutti i rami partono aperti
+      tg.addEventListener("click", () => mmSetCol(li, !li.classList.contains("col")));
+    }
+  }
+  return li;
+}
+function mmOpen() {
+  const m = mm.mappa, tree = $("mmTree");
+  $("mmTitle").textContent = m.titolo;
+  tree.innerHTML = ""; mmSel = null; mmClose();
+  const ul = document.createElement("ul");
+  const root = { parola_chiave: m.titolo, descrizione: "Argomento centrale della mappa. Tocca una parola chiave per leggerne la descrizione.", sottocategorie: m.categorie };
+  ul.appendChild(mmBuild(root, [m.titolo], 0));
+  tree.appendChild(ul);
+  show("viewMindMap");
+}
+function mmSelect(pill, node, path) {
+  if (mmSel) mmSel.classList.remove("sel");
+  mmSel = pill; pill.classList.add("sel");
+  $("mmPath").textContent = path.slice(0, -1).join(" > ") || "Argomento centrale";
+  $("mmKw").textContent = node.parola_chiave;
+  $("mmDesc").textContent = node.descrizione;
+  $("mmDetail").hidden = false; $("mmLayout").classList.add("has-detail");
+  pill.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+}
+function mmClose() {
+  if (mmSel) mmSel.classList.remove("sel");
+  mmSel = null; $("mmDetail").hidden = true; $("mmLayout").classList.remove("has-detail");
+}
+$("mmClose").addEventListener("click", mmClose);
+$("mmExpand").addEventListener("click", () => $("mmTree").querySelectorAll("li.col").forEach(li => mmSetCol(li, false)));
+$("mmCollapse").addEventListener("click", () => $("mmTree").querySelectorAll("li").forEach(li => { if (li._tg) mmSetCol(li, true); }));
+$("mmBack").addEventListener("click", () => { mmClose(); show("viewMap"); });
+
+/* Trascinamento con il mouse (Mac); con il dito si usa lo scorrimento nativo di iPhone/iPad */
+(function () {
+  const sc = $("mmScroll"); let d = null;
+  sc.addEventListener("pointerdown", e => {
+    if (e.pointerType !== "mouse" || e.target.closest("button")) return;
+    d = { x: e.clientX, y: e.clientY, l: sc.scrollLeft, t: sc.scrollTop };
+    sc.setPointerCapture(e.pointerId); sc.classList.add("drag");
+  });
+  sc.addEventListener("pointermove", e => { if (d) { sc.scrollLeft = d.l - (e.clientX - d.x); sc.scrollTop = d.t - (e.clientY - d.y); } });
+  const end = () => { d = null; sc.classList.remove("drag"); };
+  sc.addEventListener("pointerup", end); sc.addEventListener("pointercancel", end);
+})();
+
+/* Generazione */
+$("btnMap").addEventListener("click", async () => {
+  if (!apiKey) return setStatus("Inserisci la chiave API di Gemini nelle impostazioni.", true);
+  const sources = pdfTexts.filter(p => p.chars >= 50);
+  let text = sources.map(p => `### DISPENSA: ${p.name}\n${p.text}`).join("\n\n");
+  if (text.length > MAX_CHARS) text = text.slice(0, MAX_CHARS);
+  $("btnGen").disabled = true; $("btnMap").disabled = true;
+  setStatus("Genero la mappa concettuale…");
+  try {
+    const m = mmClean(await geminiJSON(MM_SYSTEM, "Costruisci la mappa mentale gerarchica del testo seguente.\n\n=== TESTO DELLE DISPENSE ===\n" + text, MM_SCHEMA));
+    if (!m) throw new Error("il modello non ha restituito una mappa valida. Riprova.");
+    mmSet(m, sources.map(p => p.name));
+    setStatus(""); mmOpen();
+  } catch (err) { setStatus("Generazione della mappa non riuscita: " + err.message, true); }
+  finally { $("btnGen").disabled = false; $("btnMap").disabled = false; }
+});
+$("btnOpenMap").addEventListener("click", () => { const j = mmSaved(); if (j) { mm = j; mmOpen(); } });
+
+/* Salvataggio / caricamento su file (.json) per iCloud Drive */
+async function mmSaveFile() {
+  const name = "mappa-" + new Date().toISOString().slice(0, 10) + ".json";
+  const blob = new Blob([JSON.stringify(mm, null, 2)], { type: "application/json" });
+  const file = new File([blob], name, { type: "application/json" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {   // iPhone/iPad: foglio di condivisione → "Salva su File"
+    try { await navigator.share({ files: [file] }); return; } catch (e) { if (e.name === "AbortError") return; }
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+$("mmSave").addEventListener("click", mmSaveFile);
+function mmImport(j) {   // chiamata dal pulsante "Carica mazzo o mappa da file"
+  const m = mmClean(j.mappa);
+  if (!m) throw new Error("mappa concettuale non valida");
+  mmSet(m, j.fonti || []); setStatus(""); mmOpen();
+}
+mmRefreshButton();   // all'avvio: prepara "Apri mappa concettuale salvata" se esiste
+
+/* ---------- Navigazione tra schermata iniziale e sezioni ---------- */
+$("goCards").addEventListener("click", () => show("viewCards"));
+$("goMap").addEventListener("click", () => { mmRefreshButton(); show("viewMap"); });
+$("backCards").addEventListener("click", () => show("viewHome"));
+$("backMap").addEventListener("click", () => show("viewHome"));
+$("btnLoadMap").addEventListener("click", () => $("deckInput").click());   // il caricatore riconosce da solo mazzi e mappe
+</script>
+</body>
+</html>
